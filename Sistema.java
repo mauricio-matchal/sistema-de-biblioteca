@@ -1,41 +1,52 @@
+
 import java.util.ArrayList;
 import java.util.List;
 
 public class Sistema {
+
+    private static Sistema instance;
     private final List<Livro> livros;
     private final List<Exemplar> exemplares;
     private final List<Usuario> usuarios;
     private final List<Reserva> reservas;
     private final Comunicacao comunicacao = Comunicacao.getInstance();
 
-    public Sistema(List<Livro> livros, List<Exemplar> exemplares, List<Usuario> usuarios) {
+    private Sistema(List<Livro> livros, List<Exemplar> exemplares, List<Usuario> usuarios) {
         this.livros = livros;
         this.exemplares = exemplares;
         this.usuarios = usuarios;
         this.reservas = new ArrayList<>();
     }
 
-    private Usuario getUsuarioByCodigo(String codigoUsuario){
-        for (Usuario usuario : this.usuarios){
-            if (codigoUsuario.equals(usuario.getCodigoUsuario())){
+    public static synchronized Sistema getInstancia(List<Livro> livros, List<Exemplar> exemplares, List<Usuario> usuarios) {
+        if (instance == null) {
+            instance = new Sistema(livros, exemplares, usuarios);
+        }
+        return instance;
+    }
+
+    private Usuario getUsuarioByCodigo(String codigoUsuario) {
+        for (Usuario usuario : this.usuarios) {
+            if (codigoUsuario.equals(usuario.getCodigoUsuario())) {
                 return usuario;
             }
         }
         return null;
     }
-    private Livro getLivroByCodigo(String codigoLivro){
-        for (Livro livro : this.livros){
-            if (codigoLivro.equals(livro.getCodigo())){
+
+    private Livro getLivroByCodigo(String codigoLivro) {
+        for (Livro livro : this.livros) {
+            if (codigoLivro.equals(livro.getCodigo())) {
                 return livro;
             }
         }
         return null;
     }
 
-    private List<Exemplar> getExemplaresByLivro(Livro livro){
+    private List<Exemplar> getExemplaresByLivro(Livro livro) {
         List<Exemplar> listaDeExemplares = new ArrayList<>();
-        for (Exemplar exemplar : this.exemplares){
-            if (livro == exemplar.getLivro()){
+        for (Exemplar exemplar : this.exemplares) {
+            if (livro == exemplar.getLivro()) {
                 listaDeExemplares.add(exemplar);
             }
         }
@@ -56,33 +67,33 @@ public class Sistema {
         int reservasLivro = 0;
         Reserva reservaRemover = null;
         for (Reserva reserva : this.reservas) {
-            if (reserva.getLivro().equals(livro)){
+            if (reserva.getLivro().equals(livro)) {
                 reservasLivro++;
                 if (reservaRemover == null && reserva.getUsuario().equals(usuario)) {
                     reservaRemover = reserva;
                 }
             }
         }
-        
+
         Exemplar exemplarDisponivel = null;
         for (Exemplar exemplar : getExemplaresByLivro(livro)) {
             if ("Disponivel".equals(exemplar.getStatus())) {
                 exemplarDisponivel = exemplar;
             }
         }
-        if (exemplarDisponivel == null){
+        if (exemplarDisponivel == null) {
             comunicacao.setOutput("Empréstimo falhou. Não há exemplares disponíveis para o livro: " + livro.getTitulo());
         } else if (usuario.isDevedor()) {
             comunicacao.setOutput("Empréstimo falhou. O usuário está com livro em atraso.");
-        } else if(usuario instanceof Professor) {
-            if (reservaRemover != null ) {
+        } else if (usuario instanceof Professor) {
+            if (reservaRemover != null) {
                 this.reservas.remove(reservaRemover);
             }
             exemplarDisponivel.emprestar(usuario);
             usuario.guardarEmprestimo(new Emprestimo(livro, usuario));
             comunicacao.setOutput("Empréstimo realizado com sucesso. Usuário: " + usuario.getNome() + ", Livro: " + livro.getTitulo());
         } else {
-            if (!usuario.podePegarEmprestimo()){
+            if (!usuario.podePegarEmprestimo()) {
                 comunicacao.setOutput("Empréstimo falhou. O usuário já está com o limite de emprestimos em aberto.");
             } else if (reservaRemover == null && reservasLivro >= getExemplaresByLivro(livro).size()) {
                 comunicacao.setOutput("Empréstimo falhou. O numero de Exemplares disponiveis é menor que o número de reservas e o usuario não tem uma reserva.");
@@ -98,7 +109,7 @@ public class Sistema {
     }
 
     public void executarReserva(String codigoUsuario, String codigoLivro) {
-            Usuario usuario = getUsuarioByCodigo(codigoUsuario);
+        Usuario usuario = getUsuarioByCodigo(codigoUsuario);
         if (usuario == null) {
             comunicacao.setOutput("Usuário não encontrado.");
             return;
@@ -119,10 +130,10 @@ public class Sistema {
         int reservasSimutaneas = 0;
 
         for (Reserva reserva : this.reservas) {
-            if (reserva.getUsuario().equals(usuario)){
+            if (reserva.getUsuario().equals(usuario)) {
                 reservasDoUsuario++;
             }
-            if (reserva.getLivro().equals(livro)){
+            if (reserva.getLivro().equals(livro)) {
                 reservasSimutaneas++;
             }
         }
@@ -130,14 +141,15 @@ public class Sistema {
             comunicacao.setOutput("Reserva falhou. O usuário " + usuario.getNome() + " já tem 3 reservas ativas.");
             return;
         }
-        if (reservasSimutaneas + 1 > 2){
-            livro.notificarObservadores(); 
+        if (reservasSimutaneas + 1 > 2) {
+            livro.notificarObservadores();
         }
         Reserva novaReserva = new Reserva(livro, usuario);
         this.reservas.add(novaReserva);
         usuario.guardarReserva(novaReserva);
         comunicacao.setOutput("Reserva realizada com sucesso. Usuário: " + usuario.getNome() + ", Livro: " + livro.getTitulo());
     }
+
     public void executarDevolucao(String codigoUsuario, String codigoLivro) {
         Usuario usuario = getUsuarioByCodigo(codigoUsuario);
         if (usuario == null) {
@@ -159,7 +171,7 @@ public class Sistema {
         }
         comunicacao.setOutput("Devolução falhou. Não há empréstimo em aberto para o usuário: " + usuario.getNome() + " e livro: " + livro.getTitulo());
     }
-    
+
     public void cadastraObservador(String codigoUsuario, String codigoLivro) {
         Usuario usuario = getUsuarioByCodigo(codigoUsuario);
         if (usuario == null) {
@@ -190,7 +202,7 @@ public class Sistema {
         comunicacao.setOutput("Título: " + livro.getTitulo());
         List<Usuario> usuariosReservaram = new ArrayList<>();
         for (Reserva reserva : this.reservas) {
-            if (reserva.getLivro().equals(livro)){
+            if (reserva.getLivro().equals(livro)) {
                 usuariosReservaram.add(reserva.getUsuario());
             }
         }
@@ -202,16 +214,16 @@ public class Sistema {
                 comunicacao.setOutput("- " + usuario.getNome());
             }
         }
-        
+
         comunicacao.setOutput("Exemplares:");
 
         for (Exemplar exemplar : getExemplaresByLivro(livro)) {
             String texto = "- Código: " + exemplar.getCodigoExemplar() + ", Status: " + exemplar.getStatus();
-            
+
             if ("Emprestado".equals(exemplar.getStatus())) {
-                texto += ", Atualmente com o usuário: " + exemplar.getDetentor().getNome() + 
-                         ", Data de Empréstimo: " + exemplar.getDetentor().consultaDataEmprestimo(livro) +
-                         ", Data de Devolução: " +  exemplar.getDetentor().consultaDataDevolucao(livro);
+                texto += ", Atualmente com o usuário: " + exemplar.getDetentor().getNome()
+                        + ", Data de Empréstimo: " + exemplar.getDetentor().consultaDataEmprestimo(livro)
+                        + ", Data de Devolução: " + exemplar.getDetentor().consultaDataDevolucao(livro);
             }
             comunicacao.setOutput(texto);
         }
@@ -219,7 +231,7 @@ public class Sistema {
 
     public void consultaUsuario(String codigoUsuario) {
         Usuario usuario = getUsuarioByCodigo(codigoUsuario);
-    
+
         if (usuario == null) {
             comunicacao.setOutput("Usuário não encontrado.");
             return;

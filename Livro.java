@@ -18,7 +18,6 @@ public class Livro {
         this.edicao = edicao;
         this.anoPublicacao = anoPublicacao;
         this.observadores = new ArrayList<>();
-        
     }
 
     public void adicionarObservador(Observer observador) {
